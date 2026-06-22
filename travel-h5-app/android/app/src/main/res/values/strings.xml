@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">travelapp</string>
+    <string name="title_activity_main">travelapp</string>
+    <string name="package_name">com.travelapp.app</string>
+    <string name="custom_url_scheme">com.travelapp.app</string>
+</resources>

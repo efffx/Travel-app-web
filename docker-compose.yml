@@ -1,0 +1,35 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: ai-travel-mongo
+    restart: unless-stopped
+    ports: ['27017:27017']
+    volumes: [mongo-data:/data/db]
+    environment: { MONGO_INITDB_DATABASE: ai-travel }
+
+  backend:
+    build: ./travel-server
+    container_name: ai-travel-backend
+    restart: unless-stopped
+    ports: ['3300:3300']
+    environment:
+      NODE_ENV: production
+      PORT: 3300
+      MONGODB_URI: mongodb://mongodb:27017/ai-travel
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-SILICONFLOW}
+      SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY}
+      SILICONFLOW_BASE_URL: ${SILICONFLOW_BASE_URL:-https://api.siliconflow.cn/v1}
+      SILICONFLOW_MODEL: ${SILICONFLOW_MODEL:-Qwen/Qwen3.6-35B-A3B}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+    depends_on: [mongodb]
+
+  frontend:
+    build: ./travel-h5
+    container_name: ai-travel-frontend
+    restart: unless-stopped
+    ports: ['80:80']
+    depends_on: [backend]
+
+volumes:
+  mongo-data:
