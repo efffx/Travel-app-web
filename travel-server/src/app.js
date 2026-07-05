@@ -7,7 +7,9 @@ import travelRouter from './routes/travel.js';
 import travelLogRouter from './routes/travelLog.js';
 import tripPlanRouter from './routes/tripPlan.js';
 import trainRouter from './routes/train.js';
-
+import collectRouter from './controllers/collection.js';
+import collectlistRouter from './controllers/collectionlist.js';
+import locationRouter from './services/location.js';
 const app = express();
 
 app.use(cors({ origin: true, credentials: true }));
@@ -23,7 +25,9 @@ app.use('/api/auth', authRouter);
 app.use('/api/travel', travelRouter);
 app.use('/api/travel-logs', travelLogRouter);
 app.use('/api/trip-plans', tripPlanRouter);
-
+app.use('/api/plan', collectRouter);
+app.use('/api/list', collectlistRouter);
+app.use('/api/location', locationRouter);
 // Backward compat
 app.use('/travel', travelRouter);
 app.use('/api/train', trainRouter);

@@ -137,65 +137,80 @@ class TravelServices{
     
       getTravelprompt(city,budget,days){
         return [
-            new HumanMessage(`你是一个专业的旅游规划师，擅长根据用户的需求生成详细的旅行行程。
+            new HumanMessage(`你是一个精通深度游、自由行的专业高级旅游规划师。擅长根据用户的需求，生成极具实操性、细节拉满、能直接照着走的保姆级旅行行程。
 
-请根据以下信息为用户生成一份详细的旅游规划：
+请根据以下信息为用户生成一份深度的旅游规划：
 - 目的地城市：${city}
 - 预算：${budget}元
 - 旅行天数：${days}天
 
-要求：
-1. 每天的行程安排（上午、下午、晚上）
-2. 每个景点的详细介绍
-3. 交通建议
-4. 预算分配明细
-5. 注意事项
-
-请以JSON格式输出，结构如下：
+请以 JSON 格式输出，结构必须严格如下：
 {
   "success": true,
   "city": "城市名",
   "days": 天数,
   "totalBudget": 总预算,
+  
+  "accommodationGuide": {
+    "recommendedArea": "最推荐的住宿商圈/区域名称（如：北京东单/王府井附近）",
+    "reason": "为什么推荐住这里（从交通、周边、便利度分析）",
+    "hotelSuggestions": [
+      {"level": "经济型/舒适型", "name": "推荐酒店/民宿示例名1", "estimatedPrice": "参考价格/晚"},
+      {"level": "高档型/品质型", "name": "推荐酒店/民宿示例名2", "estimatedPrice": "参考价格/晚"}
+    ]
+  },
+  
+  "mustEatFood": [
+    {
+      "name": "特色美食/小吃名称",
+      "description": "口味特点介绍",
+      "recommendedLoc": "推荐去哪里吃（具体老字号、地道餐馆或著名美食街）"
+    }
+  ],
+  
   "dailyItinerary": [
     {
       "day": 1,
       "date": "第1天",
-      "morning": {
-        "spot": "景点名称",
-        "duration": "游览时长",
-        "ticket": "门票价格",
-        "transportation": "交通方式",
-        "description": "景点介绍"
-      },
-      "afternoon": {
-        "spot": "景点名称",
-        "duration": "游览时长",
-        "ticket": "门票价格",
-        "transportation": "交通方式",
-        "description": "景点介绍"
-      },
-      "evening": {
-        "spot": "活动名称",
-        "duration": "活动时长",
-        "ticket": "费用",
-        "transportation": "交通方式",
-        "description": "活动介绍"
-      }
+      "theme": "本日行程主题（如：古建文化历史一日游）",
+      "activities": [
+        {
+          "timeSlot": "例：09:00 - 11:30",
+          "type": "spot", 
+          "title": "景点或活动名称",
+          "duration": "建议游览时长",
+          "ticket": "门票价格及预约建议",
+          "transportation": "从上一站怎么过去（如：地铁X号线直达，耗时20分钟）",
+          "description": "这个景点的深度介绍，以及进去后怎么逛、最佳拍照机位等实用干货"
+        },
+        {
+          "timeSlot": "例：12:00 - 13:30",
+          "type": "food",
+          "title": "午餐/特色美食推荐",
+          "duration": "就餐时长",
+          "ticket": "人均消费",
+          "transportation": "步行/打车距离",
+          "description": "推荐尝试的具体菜品或在这个商圈附近的就餐避坑建议"
+        }
+      ]
     }
   ],
+  
   "budgetBreakdown": {
-    "accommodation": 住宿费用,
-    "food": 餐饮费用,
-    "transportation": 交通费用,
-    "tickets": 门票费用,
-    "other": 其他费用
+    "accommodation": 住宿总费用,
+    "food": 餐饮总费用,
+    "transportation": 交通总费用,
+    "tickets": 门票总费用,
+    "other": 其他预留费用
   },
-  "tips": ["提示1", "提示2", "提示3"],
-  "warnings": ["注意事项1", "注意事项2"]
+  
+  "localTransportStrategy": "针对该城市的整体交通建议（如：强烈建议办电子公交卡，某某时段避开堵车）",
+  "packingList": ["根据目的地和季节推荐的必带物品1", "必带物品2"],
+  "tips": ["实用的游玩省钱/省时小技巧1", "小技巧2"],
+  "warnings": ["针对本地的避坑/防宰注意事项1", "注意事项2"]
 }
 
-请确保只输出纯JSON，不要包含任何markdown代码块标记或其他额外说明。`
+请确保只输出纯 JSON，不要包含任何markdown代码块标记或其他额外说明`
       )
         ]
       }
