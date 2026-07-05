@@ -1,14 +1,14 @@
-// 🌟 移除 authenticate 中间件，允许未登录时直接访问
 import express from 'express';
-import axios from 'axios'; // 🚨 核心修复：必须显式引入 axios，否则下方调用会直接崩溃！
+import axios from 'axios';
 
 const router = express.Router();
 
 router.get('/get-city', async (req, res) => {
   const { list_lng, list_lat } = req.query;
-  console.log('【后端收到请求】经度:', list_lng, '纬度:', list_lat);
   
-  // 1. 基础参数校验
+  // 1. 打印收到的参数，在 Railway Logs 里死死盯住它们是不是传反了！
+  console.log('【Railway收到请求】经度(lng):', list_lng, ' | 纬度(lat):', list_lat);
+
   if (!list_lng || !list_lat) {
     return res.status(400).json({ success: false, message: '经纬度参数缺失' });
   }
@@ -20,49 +20,51 @@ router.get('/get-city', async (req, res) => {
   }
 
   try {
-    // 2. 检查经纬度小数点位数
-    // 高德逆地理编码规范：经纬度小数点最好不要超过 6 位。
-    // Capacitor 获取的原生经纬度往往有十十几位，有时候会导致高德接口报错。我们在这里顺手做个格式化，最稳妥：
+    // 2. 强行截取 6 位小数，防止 Capacitor 吐出的十几位长浮点数导致高德不识别
     const formattedLng = Number(list_lng).toFixed(6);
     const formattedLat = Number(list_lat).toFixed(6);
 
-    // 3. 向高德发起请求
+    // 3. 向高德发起请求 (严格确保格式为：经度,纬度)
     const response = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
       params: {
-        location: `${formattedLng},${formattedLat}`, // 传入格式化后的标准高德格式
+        location: `${formattedLng},${formattedLat}`,
         key: amapKey
       }
     });
 
     const data = response.data;
-    console.log('【高德 API 原始返回】:', data); // 🌟 加一行这个，方便你在后端控制台看高德有没有认出你的坐标
+    // 🌟 这行日志至关重要！去 Railway 后台看高德到底吐了什么原始数据出来
+    console.log('【高德 API 原始返回数据】:', JSON.stringify(data));
 
     if (data.status === '1' && data.regeocode) {
       const addressComponent = data.regeocode.addressComponent;
       
-      // 兼容处理：如果是直辖市（上海/北京），city 可能是空数组 []，此时要取 province
-      let city = addressComponent.city;
-      if (!city || (Array.isArray(city) && city.length === 0)) {
-        city = addressComponent.province;
+      // 🌟 核心修复：防御直辖市空数组大坑
+      let cityName = '';
+      if (addressComponent.city && !Array.isArray(addressComponent.city)) {
+        cityName = addressComponent.city;
+      } else {
+        cityName = addressComponent.province; // 直辖市时，city是[]，直接取省份字段（如 "北京市"）
       }
 
-      // 如果返回的城市名带了“市”（如：成都市），为了匹配你的前端 allCities 数组（如：'成都'），做个清洗：
-      if (typeof city === 'string') {
-        city = city.replace('市', '');
+      // 4. 数据清洗：为了匹配你前端 columns 里的 '成都', '北京'，把末尾的 '市' 或 '省' 去掉
+      if (typeof cityName === 'string') {
+        cityName = cityName.replace('市', '').replace('省', '');
       }
+
+      console.log('【后端最终清洗出的城市】:', cityName);
 
       return res.json({
         success: true,
-        data: { city }
+        data: { city: cityName }
       });
     } else {
-      console.error('高德 API 返回错误:', data);
-      return res.status(500).json({ success: false, message: '获取定位城市失败', raw: data });
+      console.error('高德 API 返回状态不为 1:', data);
+      return res.status(500).json({ success: false, message: '获取定位城市失败' });
     }
 
   } catch (error) {
-    // 🌟 重点观察这里：如果之前报错 axios is not defined，会在这里被打印出来
-    console.error('请求高德 API 发生内部异常:', error.stack || error.message);
+    console.error('请求高德 API 发生网络异常:', error.message);
     return res.status(500).json({ success: false, message: '定位服务暂时不可用' });
   }
 });
