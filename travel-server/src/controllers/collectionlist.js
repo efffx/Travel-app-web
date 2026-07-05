@@ -31,18 +31,40 @@ export async function getCollectList(req, res) {
     // 主表只需要返回卡片渲染所需的轻量级数据（如城市、天数、预算、住宿区），千万别把几万字的活动明细一起查出来
     const countSql = `SELECT COUNT(*) as total FROM travel_plan WHERE user_id = ?`;
     const listSql = `
-      SELECT id, city, days, total_budget, accommodation_area, created_at 
-      FROM travel_plan 
-      WHERE user_id = ? 
-      ORDER BY created_at DESC 
-      LIMIT ? OFFSET ?
+    SELECT id, city, days, total_budget, accommodation_area, created_at
+    FROM travel_plan
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+    LIMIT ?, ?
     `;
-
+const [listRows] = await pool.execute(listSql, [
+    userId,
+    offset,
+    limit
+]);
     // 4. 使用 Promise.all 让两条 SQL 并发执行，成倍缩短数据库 I/O 等待时间
-    const [[countResult], [listResult]] = await Promise.all([
-      pool.execute(countSql, [userId]),
-      pool.execute(listSql, [userId, limit, offset])
-    ]);
+    // const [[countResult], [listResult]] = await Promise.all([
+    //   pool.execute(countSql, [userId]),
+    //   pool.execute(listSql, [userId, limit, offset])
+    // ]);、
+
+    const [
+    [countRows],
+    [listRows]
+] = await Promise.all([
+    pool.execute(countSql, [userId]),
+    pool.execute(listSql, [userId, offset, limit])
+]);
+
+return res.json({
+    success: true,
+    data: {
+        list: listRows,
+        total: countRows[0].total,
+        page,
+        limit
+    }
+});
 
     // 5. 按照标准分页结构体返回给前端
     return res.json({
