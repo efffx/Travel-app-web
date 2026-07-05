@@ -37,6 +37,15 @@ const params = [
 ];
 
 console.log('params =', params);
+
+const [rows] = await pool.query(`
+SELECT id
+FROM travel_plan
+WHERE user_id = ?
+LIMIT 0,10
+`, [1]);
+
+console.log(rows);
   try {
     // 3. 🧠 高并发性能优化：使用两条 SQL 分别查“总数”与“当前页列表”
     // 主表只需要返回卡片渲染所需的轻量级数据（如城市、天数、预算、住宿区），千万别把几万字的活动明细一起查出来
