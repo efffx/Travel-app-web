@@ -25,7 +25,18 @@ export async function getCollectList(req, res) {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
+console.log('userId:', userId, typeof userId);
+console.log('page:', page, typeof page);
+console.log('limit:', limit, typeof limit);
+console.log('offset:', offset, typeof offset);
 
+const params = [
+  Number(userId),
+  Number(offset),
+  Number(limit)
+];
+
+console.log('params =', params);
   try {
     // 3. 🧠 高并发性能优化：使用两条 SQL 分别查“总数”与“当前页列表”
     // 主表只需要返回卡片渲染所需的轻量级数据（如城市、天数、预算、住宿区），千万别把几万字的活动明细一起查出来
