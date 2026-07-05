@@ -61,7 +61,15 @@ return res.json({
         limit
     }
 });
-
+console.log({
+  userId,
+  page,
+  limit,
+  offset,
+  userIdType: typeof userId,
+  limitType: typeof limit,
+  offsetType: typeof offset,
+});
     // 5. 按照标准分页结构体返回给前端
     return res.json({
       success: true,
