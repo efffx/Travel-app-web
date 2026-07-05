@@ -37,11 +37,7 @@ export async function getCollectList(req, res) {
     ORDER BY created_at DESC
     LIMIT ?, ?
     `;
-const [listRows] = await pool.execute(listSql, [
-    userId,
-    offset,
-    limit
-]);
+
     // 4. 使用 Promise.all 让两条 SQL 并发执行，成倍缩短数据库 I/O 等待时间
     // const [[countResult], [listResult]] = await Promise.all([
     //   pool.execute(countSql, [userId]),
