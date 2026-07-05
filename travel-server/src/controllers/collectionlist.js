@@ -25,27 +25,7 @@ export async function getCollectList(req, res) {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
-console.log('userId:', userId, typeof userId);
-console.log('page:', page, typeof page);
-console.log('limit:', limit, typeof limit);
-console.log('offset:', offset, typeof offset);
 
-const params = [
-  Number(userId),
-  Number(offset),
-  Number(limit)
-];
-
-console.log('params =', params);
-
-const [rows] = await pool.query(`
-SELECT id
-FROM travel_plan
-WHERE user_id = ?
-LIMIT 0,10
-`, [1]);
-
-console.log(rows);
   try {
     // 3. 🧠 高并发性能优化：使用两条 SQL 分别查“总数”与“当前页列表”
     // 主表只需要返回卡片渲染所需的轻量级数据（如城市、天数、预算、住宿区），千万别把几万字的活动明细一起查出来
@@ -65,32 +45,31 @@ console.log(rows);
     // ]);
 
 
-    const listSql = `
-SELECT id, city, days, total_budget, accommodation_area, created_at
-FROM travel_plan
-WHERE user_id = ?
-ORDER BY created_at DESC
-LIMIT ?, ?
-`;
+const listSql = `
+    SELECT id, city, days, total_budget, accommodation_area, created_at
+    FROM travel_plan
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+    LIMIT ${offset}, ${limit}
+  `;
 
-const [countRows] = await pool.execute(countSql, [userId]);
+  // 查询总数
+  const [countRows] = await pool.query(countSql, [userId]);
 
-const [listRows] = await pool.execute(listSql, [
-  Number(userId),
-  Number(offset),
-  Number(limit)
-]);
+  // 查询分页数据
+  const [listRows] = await pool.query(listSql, [userId]);
 
-return res.json({
-  success: true,
-  message: '列表加载成功',
-  data: {
-    list: listRows,
-    total: countRows[0].total,
-    page,
-    limit
-  }
-});
+  return res.json({
+    success: true,
+    message: '列表加载成功',
+    data: {
+      list: listRows,
+      total: countRows[0].total,
+      page,
+      limit
+    }
+  });
+
 
 
   } catch (error) {
