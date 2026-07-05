@@ -1,10 +1,10 @@
 // 🌟 移除 authenticate 中间件，允许未登录时直接访问
 import express from 'express';
 const router = express.Router();
-
+ 
 router.get('/get-city', async (req, res) => {
   const { list_lng, list_lat } = req.query;
-
+  console.log('【后端收到请求】经度:', list_lng, '纬度:', list_lat);
   // 1. 基础参数校验
   if (!list_lng || !list_lat) {
     return res.status(400).json({ success: false, message: '经纬度参数缺失' });
