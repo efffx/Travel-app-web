@@ -247,15 +247,29 @@ router.get('/detail', authenticate, async (req, res) => {
   }
 
   try {
-    // 1. 查主表
-    const [main] = await pool.execute(`SELECT * FROM travel_plan WHERE id = ? AND user_id = ?`, [planId, userId]);
-    if (main.length === 0) return res.status(404).json({ success: false, message: '行程未找到' });
+    // 🌟 1. 查主表（改为 pool.query，安全且不占预处理缓存，完美防高并发挂起）
+    const [main] = await pool.query(
+      'SELECT * FROM travel_plan WHERE id = ? AND user_id = ?', 
+      [planId, userId]
+    );
+    
+    if (!main || main.length === 0) {
+      return res.status(404).json({ success: false, message: '行程未找到' });
+    }
 
-    // 2. 查子表（多表互相独立，并发并行查，效率最高且安全）
-    const [hotels] = await pool.execute(`SELECT * FROM travel_plan_hotel WHERE plan_id = ?`, [planId]);
-    const [foods] = await pool.execute(`SELECT * FROM travel_plan_food WHERE plan_id = ?`, [planId]);
-    const [activities] = await pool.execute(`SELECT * FROM travel_plan_activity WHERE plan_id = ? ORDER BY day_num ASC, time_slot ASC`, [planId]);
+    // 🌟 2. 并发查子表（全部改为 pool.query，并利用 Promise.all 极大提升查询吞吐率）
+    const [hotelsResult, foodsResult, activitiesResult] = await Promise.all([
+      pool.query('SELECT * FROM travel_plan_hotel WHERE plan_id = ?', [planId]),
+      pool.query('SELECT * FROM travel_plan_food WHERE plan_id = ?', [planId]),
+      pool.query('SELECT * FROM travel_plan_activity WHERE plan_id = ? ORDER BY day_num ASC, time_slot ASC', [planId])
+    ]);
 
+    // mysql2 的 query 返回的是一个数组，第一项是行数据 [rows, fields]
+    const hotels = hotelsResult[0] || [];
+    const foods = foodsResult[0] || [];
+    const activities = activitiesResult[0] || [];
+
+    // 3. 成功返回符合前端期望的结构
     return res.json({
       success: true,
       data: {
@@ -265,9 +279,15 @@ router.get('/detail', authenticate, async (req, res) => {
         activities
       }
     });
+
   } catch (error) {
-    console.error('数据加载失败:', error);
-    return res.status(500).json({ success: false, message: '数据加载失败', error: error.message });
+    // 🌟 核心：如果捕获到错误，保证给前端一个 500 响应，绝不让服务闷声挂掉导致 502
+    console.error('💥 [Detail API] 数据库查询出现严重异常:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: '数据加载失败，云端服务器异常', 
+      error: error.message 
+    });
   }
 });
 
