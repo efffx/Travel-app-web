@@ -59,7 +59,7 @@ router.post('/trainsport', async (req, res) => {
                     params: {
                         start: fromStationName, // 👈 直接传中文 "泉州"
                         end: toStationName,     // 👈 直接传中文 "福州"
-                        date: dayjs().format('YYYY-MM-DD') // 查当天
+                        date: dayjs().add(1, 'day').format('YYYY-MM-DD') // 查明天
                     },
                     headers: {
                         'Authorization': `APPCODE ${ALIYUN_APPCODE}`,
