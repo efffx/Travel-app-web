@@ -51,8 +51,8 @@ router.post('/trainsport', async (req, res) => {
         } else {
             console.log(`[Cache Miss] 缓存未命中，开始请求阿里云API -> ${cacheKey}`);
             try {
-                const ALIYUN_APPCODE = 'CODE自己修改'; 
-                const ALIYUN_API_URL = '火车票api'; 
+                const ALIYUN_APPCODE = process.env.ALIYUN_APPCODE; 
+                const ALIYUN_API_URL = process.env.ALIYUN_API_URL; 
 
                 // 🚨 根据 Java 文档，一比一还原请求
                 const response = await axios.get(ALIYUN_API_URL, {
