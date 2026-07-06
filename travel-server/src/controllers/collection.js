@@ -1,7 +1,7 @@
 import express from 'express';
 import pool from '../config/mysql.js';
 import { authenticate } from '../middleware/auth.js'; 
-import { post, get } from '../utils/request'
+
 const router = express.Router();
 
 // 规范路由注册（统一路径前缀风格）
