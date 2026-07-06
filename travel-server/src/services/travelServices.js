@@ -88,10 +88,10 @@ class TravelServices{
             const response = await this.llm.invoke(message);
             console.log('LLM原始响应:', response);
             let content = response.content || '';
-            console.log('原始内容:', content);
+            //console.log('原始内容:', content);
             
             content = this.extractJsonFromContent(content);
-            console.log('提取后的JSON:', content);
+            //console.log('提取后的JSON:', content);
             
             try {
                 const result = JSON.parse(content);
