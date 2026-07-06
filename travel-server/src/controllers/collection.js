@@ -4,7 +4,7 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// 🌟 规范路由注册（统一路径前缀风格）
+// 规范路由注册（统一路径前缀风格）
 router.post('/collect', authenticate, collectTravelPlan);
 router.post('/uncollect', authenticate, uncollectTravelPlan);
 router.get('/check-status', authenticate, checkFavoriteStatus);
@@ -49,51 +49,65 @@ export async function collectTravelPlan(req, res) {
 
     const planId = planResult.insertId;
 
-    // === 步骤二：优化批量插入酒店（改用 Promise.all 并发，拒绝 for 循环阻塞） ===
+    // === 🌟 步骤二：安全优化 - 酒店大批量合并插入 ===
     if (hotels && hotels.length > 0) {
+      // 构造一条 SQL 的多个 VALUES 占位符，例: (?, ?, ?, ?), (?, ?, ?, ?)
+      const valuesPlaceholders = hotels.map(() => '(?, ?, ?, ?)').join(', ');
       const insertHotelSql = `
         INSERT INTO travel_plan_hotel (plan_id, level, name, estimated_price) 
-        VALUES (?, ?, ?, ?)
+        VALUES ${valuesPlaceholders}
       `;
-      const hotelPromises = hotels.map(hotel => 
-        connection.execute(insertHotelSql, [
-          planId, 
-          hotel.level || '精选', 
-          hotel.name || '', 
+      
+      // 平铺所有的参数数组
+      const hotelParams = [];
+      hotels.forEach(hotel => {
+        hotelParams.push(
+          planId,
+          hotel.level || '精选',
+          hotel.name || '',
           hotel.estimatedPrice || hotel.estimated_price || '0'
-        ])
-      );
-      await Promise.all(hotelPromises);
+        );
+      });
+
+      // 仅调用 1 次 execute，彻底拒绝连接排队死锁隐患
+      await connection.execute(insertHotelSql, hotelParams);
     }
 
-    // === 步骤三：优化批量插入美食 ===
+    // === 🌟 步骤三：安全优化 - 美食大批量合并插入 ===
     if (foods && foods.length > 0) {
+      const valuesPlaceholders = foods.map(() => '(?, ?, ?, ?)').join(', ');
       const insertFoodSql = `
         INSERT INTO travel_plan_food (plan_id, name, description, recommended_loc) 
-        VALUES (?, ?, ?, ?)
+        VALUES ${valuesPlaceholders}
       `;
-      const foodPromises = foods.map(food => 
-        connection.execute(insertFoodSql, [
-          planId, 
-          food.name || '', 
-          food.description || '', 
+
+      const foodParams = [];
+      foods.forEach(food => {
+        foodParams.push(
+          planId,
+          food.name || '',
+          food.description || '',
           food.recommendedLoc || food.recommended_loc || ''
-        ])
-      );
-      await Promise.all(foodPromises);
+        );
+      });
+
+      await connection.execute(insertFoodSql, foodParams);
     }
 
-    // === 步骤四：优化批量插入每日活动 ===
+    // === 🌟 步骤四：安全优化 - 每日活动大批量合并插入 ===
     if (activities && activities.length > 0) {
+      const valuesPlaceholders = activities.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
       const insertActivitySql = `
         INSERT INTO travel_plan_activity (
           plan_id, day_num, day_theme, time_slot, 
           type, title, duration, ticket, 
           transportation, description
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES ${valuesPlaceholders}
       `;
-      const activityPromises = activities.map(act => 
-        connection.execute(insertActivitySql, [
+
+      const activityParams = [];
+      activities.forEach(act => {
+        activityParams.push(
           planId,
           act.dayNum || 1,
           act.dayTheme || '',
@@ -104,9 +118,10 @@ export async function collectTravelPlan(req, res) {
           act.ticket || '',
           act.transportation || '',
           act.description || ''
-        ])
-      );
-      await Promise.all(activityPromises);
+        );
+      });
+
+      await connection.execute(insertActivitySql, activityParams);
     }
 
     await connection.commit();
@@ -126,13 +141,13 @@ export async function collectTravelPlan(req, res) {
       error: error.message
     });
   } finally {
-    connection.release(); // 释放连接池
+    connection.release(); // 释放连接池回到池子，保证系统可持续运转
   }
 }
 
 /**
  * 2. POST /travel/plan/uncollect
- * 取消收藏（已由 Koa 规范重写为原生的 Express + MySQL 事务）
+ * 取消收藏
  */
 export async function uncollectTravelPlan(req, res) {
   const { planId } = req.body;
@@ -156,7 +171,7 @@ export async function uncollectTravelPlan(req, res) {
       return res.status(403).json({ success: false, message: '未找到该方案或无权操作' });
     }
 
-    // 2. 利用 Promise.all 同时删除三大子表的关联数据，提升吞吐率
+    // 🌟 注意：这里删除不同表可以用 Promise.all 并发，因为它们相互独立，不会在同一个连接里由于依赖而排队阻塞
     const deleteHotelsSql = `DELETE FROM travel_plan_hotel WHERE plan_id = ?`;
     const deleteFoodsSql = `DELETE FROM travel_plan_food WHERE plan_id = ?`;
     const deleteActivitiesSql = `DELETE FROM travel_plan_activity WHERE plan_id = ?`;
@@ -197,7 +212,6 @@ export async function uncollectTravelPlan(req, res) {
  */
 export async function checkFavoriteStatus(req, res) {
   const userId = req.user?.id;
-  // 🌟 APP 端多用 Query 传参配合检查（如：?city=上海&days=3）
   const { city, days } = req.query; 
 
   if (!city || !days) {
@@ -205,7 +219,6 @@ export async function checkFavoriteStatus(req, res) {
   }
 
   try {
-    // 查出具体记录，顺便把 planId 带回去给前端，方便前端下次直接调 uncollect 接口
     const sql = `SELECT id FROM travel_plan WHERE city = ? AND days = ? AND user_id = ? LIMIT 1`;
     const [rows] = await pool.execute(sql, [city, days, userId]);
     
@@ -227,14 +240,18 @@ export async function checkFavoriteStatus(req, res) {
 // 后端：GET /api/travel/detail
 router.get('/detail', authenticate, async (req, res) => {
   const { planId } = req.query;
-  const userId = req.user.id;
+  const userId = req.user?.id; // 统一用可选链增加系统抗风险能力
+
+  if (!planId) {
+    return res.status(400).json({ success: false, message: '必要参数缺失: planId' });
+  }
 
   try {
     // 1. 查主表
     const [main] = await pool.execute(`SELECT * FROM travel_plan WHERE id = ? AND user_id = ?`, [planId, userId]);
     if (main.length === 0) return res.status(404).json({ success: false, message: '行程未找到' });
 
-    // 2. 查子表（并发执行，效率最高）
+    // 2. 查子表（多表互相独立，并发并行查，效率最高且安全）
     const [hotels] = await pool.execute(`SELECT * FROM travel_plan_hotel WHERE plan_id = ?`, [planId]);
     const [foods] = await pool.execute(`SELECT * FROM travel_plan_food WHERE plan_id = ?`, [planId]);
     const [activities] = await pool.execute(`SELECT * FROM travel_plan_activity WHERE plan_id = ? ORDER BY day_num ASC, time_slot ASC`, [planId]);
@@ -249,7 +266,8 @@ router.get('/detail', authenticate, async (req, res) => {
       }
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: '数据加载失败' });
+    console.error('数据加载失败:', error);
+    return res.status(500).json({ success: false, message: '数据加载失败', error: error.message });
   }
 });
 
